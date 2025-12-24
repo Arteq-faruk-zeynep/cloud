@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT Telemetri - Kayıt Ol</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; margin: 0; }
+        .register-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 320px; }
+        h2 { text-align: center; color: #333; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button:hover { background: #218838; }
+        .login-link { text-align: center; margin-top: 15px; font-size: 14px; }
+        .login-link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        #message { text-align: center; margin-top: 10px; font-weight: bold; min-height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="register-card">
+        <h2>Yeni Kayıt</h2>
+        <input type="text" id="reg_user" placeholder="Kullanıcı Adı" required>
+        <input type="email" id="reg_email" placeholder="E-posta (Opsiyonel)">
+        <input type="password" id="reg_pass" placeholder="Şifre" required>
+        <button onclick="doRegister()">Kayıt Ol</button>
+        <p id="message"></p>
+        <div class="login-link">
+            Zaten hesabın var mı? <a href="/">Giriş Yap</a>
+        </div>
+    </div>
+
+    <script>
+        async function doRegister() {
+            const username = document.getElementById('reg_user').value.trim();
+            const email = document.getElementById('reg_email').value.trim();
+            const password = document.getElementById('reg_pass').value;
+            const msgElement = document.getElementById('message');
+
+            if (!username || !password) {
+                msgElement.style.color = "red";
+                msgElement.innerText = "Kullanıcı adı ve şifre zorunludur!";
+                return;
+            }
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email || null,
+                        password: password
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === "Başarılı") {
+                    msgElement.style.color = "green";
+                    msgElement.innerText = "Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...";
+                    // 2 saniye bekleyip giriş sayfasına atar
+                    setTimeout(() => { window.location.href = "/"; }, 2000);
+                } else {
+                    msgElement.style.color = "red";
+                    msgElement.innerText = "Hata: " + (result.detay || "Bu kullanıcı adı alınmış olabilir.");
+                }
+            } catch (error) {
+                msgElement.style.color = "red";
+                msgElement.innerText = "Sunucuya bağlanılamadı!";
+            }
+        }
+    </script>
+</body>
+</html>

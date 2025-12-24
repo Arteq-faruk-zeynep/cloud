@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT - Cihaz Kontrol Paneli</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; }
+        .container { max-width: 1000px; margin: auto; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .card-blue { border-top: 5px solid #007bff; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #007bff; color: white; text-transform: uppercase; font-size: 13px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-logout { padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .input-group { margin: 15px 0; display: flex; gap: 10px; }
+        .input-group input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; flex: 1; }
+        .btn-primary { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .device-badge { background: #e1f0ff; color: #007bff; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>📊 Cihaz İzleme Paneli</h2>
+            <button class="btn-logout" onclick="logout()">Güvenli Çıkış</button>
+        </div>
+
+        <div class="card card-blue">
+            <h3>➕ Yeni Cihaz Kaydet</h3>
+            <div class="input-group">
+                <input type="text" id="new_device_name" placeholder="Cihaz Adı (Örn: Salon ESP)">
+                <input type="text" id="new_device_token" placeholder="Cihaz ID (Örn: /cihaz_test/zeyne/telemetry)">
+                <button class="btn-primary" onclick="registerDevice()">Kaydet</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📡 Cihazlarınızdan Gelen Son Veriler</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cihaz Bilgisi</th>
+                        <th>Sıcaklık Değeri</th>
+                        <th>Kayıt Zamanı</th>
+                    </tr>
+                </thead>
+                <tbody id="data-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Token kontrolü
+        const token = localStorage.getItem('token');
+        if (!token) { window.location.href = "/"; }
+
+        // Yeni cihaz ekleme fonksiyonu
+        async function registerDevice() {
+            const name = document.getElementById('new_device_name').value;
+            const device_token = document.getElementById('new_device_token').value;
+
+            const response = await fetch('/add-device', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ device_name: name, device_token: device_token })
+            });
+
+            if (response.ok) {
+                alert("Cihaz eklendi!");
+                fetchVeriler();
+            } else {
+                alert("Cihaz eklenirken hata oluştu.");
+            }
+        }
+
+        // Verileri API'den çekip tabloya basan fonksiyon
+        async function fetchVeriler() {
+            try {
+                // API adresini yeni endpoint yapımıza göre güncelledik
+                const response = await fetch('/api/measurement/device/temp/', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    const data = await response.json(); // Beklenen format: {"SS:DD:sn": "derece"}
+                    const body = document.getElementById('data-body');
+                    body.innerHTML = ""; 
+
+                    // Nesneyi diziye çevirip tersten (son gelen en üstte) döngüye alıyoruz
+                    const entries = Object.entries(data).reverse();
+                    
+                    if (entries.length === 0) {
+                        body.innerHTML = "<tr><td colspan='3' style='text-align:center;'>Henüz veri bulunamadı...</td></tr>";
+                        return;
+                    }
+
+                    entries.forEach(([timestamp, value]) => {
+                        body.innerHTML += `<tr>
+                            <td><span class="device-badge">Aktif Sensör</span></td>
+                            <td><b>${value} °C</b></td>
+                            <td><small>${timestamp}</small></td>
+                        </tr>`;
+                    });
+                }
+            } catch (err) { 
+                console.error("Veri çekme hatası:", err); 
+            }
+        }
+
+        function logout() { 
+            localStorage.removeItem('token'); 
+            window.location.href = "/"; 
+        }
+
+        // Sayfa açıldığında ilk veriyi çek
+        fetchVeriler();
+        
+        // Her 5 saniyede bir tabloyu güncelle
+        setInterval(fetchVeriler, 5000); 
+    </script>
+</body>
+</html>
