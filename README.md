@@ -48,3 +48,58 @@ CREATE TABLE telemetry (
     dust_raw DOUBLE PRECISION,
     device_internal_id INTEGER DEFAULT 1
 );
+
+# ☁️ Arteq IoT: Web Kontrol ve Kullanıcı Yönetim Paneli
+
+Bu proje; PostgreSQL veritabanı ile entegre, FastAPI tabanlı bir web uygulamasıdır. Kullanıcıların güvenli bir şekilde kayıt olmasını, giriş yapmasını ve veritabanındaki IoT verilerini görüntülemesini sağlar.
+
+---
+
+## 🛠️ 1. Veritabanı Yapılandırması (PostgreSQL)
+
+Sistem, verilerin kalıcılığını sağlamak için PostgreSQL kullanır. İki ana tablomuz bulunmaktadır:
+
+### Tablo Oluşturma Komutları
+pgAdmin üzerinden `iot_telemetri_db` veritabanında şu sorguları çalıştırarak tabloları oluşturabilirsiniz:
+
+# ☁️ Arteq IoT: Kullanıcı Yönetim ve Yetkilendirme Sistemi
+
+Bu proje; PostgreSQL veritabanı ile entegre, modern güvenlik standartlarına (OAuth2 & JWT) sahip bir kullanıcı yönetim sistemidir.
+
+---
+
+## 🔐 1. Kullanıcı Kayıt (Register) Mantığı
+
+Sistem, yeni bir kullanıcı oluştururken şu adımları takip eder:
+
+1. **Bilgi Girişi:** Kullanıcı `login.html` üzerinden kullanıcı adı, e-posta ve şifresini gönderir.
+2. **Şifre Hashleme:** Güvenlik nedeniyle şifreler veritabanına asla açık metin olarak kaydedilmez. `passlib` kütüphanesi ve `bcrypt` algoritması kullanılarak şifreler "hash"lenir.
+   - *Örnek:* Kullanıcı şifresi `123456` ise, veritabanına `$2b$12$eixZaYVK1...` gibi anlamsız bir dizi kaydedilir.
+3. **SQL Kaydı:** İşlenen bu veriler PostgreSQL'deki `users` tablosuna kalıcı olarak yazılır.
+
+
+
+---
+
+## 🔑 2. Kullanıcı Girişi (Login) ve Yetkilendirme
+
+Giriş işlemi, verilerin güvenliğini korumak için **JWT (JSON Web Token)** teknolojisini kullanır:
+
+* **Doğrulama:** Giriş yapılmak istendiğinde, girilen şifre ile veritabanındaki hashlenmiş şifre karşılaştırılır.
+* **Token Üretimi:** Bilgiler doğruysa, FastAPI kullanıcıya geçici bir **Giriş Bileti (Token)** oluşturur.
+* **Korumalı Sayfalar:** Kullanıcı `veriler.html` (IoT verilerinin olduğu sayfa) sayfasına gitmek istediğinde, tarayıcı bu biletini FastAPI'ye gösterir. Bilet geçerli değilse kullanıcı otomatik olarak Login sayfasına geri yönlendirilir.
+
+---
+
+## 🛠️ 3. Veritabanı Şeması (SQL)
+
+Kullanıcı yönetim sisteminin çalışması için pgAdmin üzerinde şu tabloyu oluşturmanız gerekmektedir:
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
