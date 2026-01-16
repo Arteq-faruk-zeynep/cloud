@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT - Cihaz Kontrol Paneli</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f7f6; color: #333; }
+        .container { max-width: 1000px; margin: auto; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .card-blue { border-top: 5px solid #007bff; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #007bff; color: white; text-transform: uppercase; font-size: 13px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-logout { padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .device-badge { background: #e1f0ff; color: #007bff; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+        .loading { text-align: center; color: #666; font-style: italic; }
+
+        .charts-grid{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .chart-box{
+            background:#fff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .chart-title{
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        /* küçük ekranlarda tek kolon */
+        @media (max-width: 800px){
+            .charts-grid{ grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>📊 Cihaz İzleme Paneli</h2>
+            <button class="btn-logout" onclick="logout()">Güvenli Çıkış</button>
+        </div>
+
+        <!-- ✅ GRAFİKLER -->
+        <div class="card">
+            <h3>📈 Sensör Grafikler (Canlı)</h3>
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <p class="chart-title">Temperature (°C)</p>
+                    <canvas id="chartTemperature"></canvas>
+                </div>
+                <div class="chart-box">
+                    <p class="chart-title">Humidity (%)</p>
+                    <canvas id="chartHumidity"></canvas>
+                </div>
+                <div class="chart-box">
+                    <p class="chart-title">Pressure (hPa)</p>
+                    <canvas id="chartPressure"></canvas>
+                </div>
+                <div class="chart-box">
+                    <p class="chart-title">Gas Resistance</p>
+                    <canvas id="chartGas"></canvas>
+                </div>
+                <div class="chart-box" style="grid-column: 1 / -1;">
+                    <p class="chart-title">Dust Raw</p>
+                    <canvas id="chartDust"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-blue">
+            <h3>➕ Yeni Cihaz Kaydet</h3>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="dev_name" placeholder="Cihaz Adı" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; flex: 1;">
+                <button onclick="alert('Cihaz kayıt özelliği yakında eklenecek!')" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Kaydet</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📡 Cihazlarınızdan Gelen Son Veriler (Canlı)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cihaz Bilgisi</th>
+                        <th>Sıcaklık</th>
+                        <th>Nem</th>
+                        <th>Basınç</th>
+                        <th>Gaz</th>
+                        <th>Toz</th>
+                        <th>Kayıt Zamanı</th>
+                    </tr>
+                </thead>
+                <tbody id="data-body">
+                    <tr><td colspan="7" class="loading">Veriler yükleniyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        const DEVICE_ID = 1;
+        const LIMIT = 50;
+
+        // Grafik nesnelerini burada tutacağız ki sürekli "yenisini yaratmayalım"
+        const charts = {};
+
+        async function fetchSensor(sensorType, limit = LIMIT) {
+            const url = `/api/device/${DEVICE_ID}/sensor/${sensorType}?limit=${limit}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed: ${sensorType}`);
+            return await res.json(); // [{time:"..", value:..}, ...]
+        }
+
+        function buildOrUpdateChart(canvasId, label, points){
+            const labels = points.map(p => p.time);
+            const values = points.map(p => p.value);
+
+            const ctx = document.getElementById(canvasId).getContext("2d");
+
+            if (!charts[canvasId]) {
+                charts[canvasId] = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels,
+                        datasets: [{
+                            label,
+                            data: values,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        animation: false,
+                        scales: {
+                            y: { beginAtZero: false }
+                        }
+                    }
+                });
+            } else {
+                charts[canvasId].data.labels = labels;
+                charts[canvasId].data.datasets[0].data = values;
+                charts[canvasId].update();
+            }
+        }
+
+        async function refreshCharts(){
+            try{
+                const [temp, hum, pres, gas, dust] = await Promise.all([
+                    fetchSensor("temperature"),
+                    fetchSensor("humidity"),
+                    fetchSensor("pressure"),
+                    fetchSensor("gas_resistance"),
+                    fetchSensor("dust_raw"),
+                ]);
+
+                buildOrUpdateChart("chartTemperature", "Temperature", temp);
+                buildOrUpdateChart("chartHumidity", "Humidity", hum);
+                buildOrUpdateChart("chartPressure", "Pressure", pres);
+                buildOrUpdateChart("chartGas", "Gas Resistance", gas);
+                buildOrUpdateChart("chartDust", "Dust Raw", dust);
+
+            }catch(err){
+                console.error("Grafik güncelleme hatası:", err);
+            }
+        }
+
+        // ✅ Tablo: sensörleri birleştirip aynı "time" altında gösterelim
+        // Not: Sensörler farklı zamanlarda gelebilir; bu yüzden "zaman"ları birleştiriyoruz.
+        async function fetchTableRows(){
+            try{
+                // tablodaki satır sayısı için limit'i biraz daha düşük tutabiliriz
+                const limit = 15;
+
+                const [temp, hum, pres, gas, dust] = await Promise.all([
+                    fetchSensor("temperature", limit),
+                    fetchSensor("humidity", limit),
+                    fetchSensor("pressure", limit),
+                    fetchSensor("gas_resistance", limit),
+                    fetchSensor("dust_raw", limit),
+                ]);
+
+                // time -> row
+                const map = {};
+
+                function put(sensorArr, key){
+                    sensorArr.forEach(p => {
+                        if(!map[p.time]){
+                            map[p.time] = { time: p.time, temperature: null, humidity: null, pressure: null, gas_resistance: null, dust_raw: null };
+                        }
+                        map[p.time][key] = p.value;
+                    });
+                }
+
+                put(temp, "temperature");
+                put(hum, "humidity");
+                put(pres, "pressure");
+                put(gas, "gas_resistance");
+                put(dust, "dust_raw");
+
+                // zamanı sıralayalım (string HH:MM:SS)
+                const times = Object.keys(map).sort((a,b)=> a.localeCompare(b));
+                return times.map(t => map[t]);
+            }catch(err){
+                console.error("Tablo veri çekme hatası:", err);
+                return [];
+            }
+        }
+
+        function fmt(v, digits=2){
+            if(v === null || v === undefined) return "-";
+            if(typeof v === "number") return v.toFixed(digits);
+            return v;
+        }
+
+        async function refreshTable(){
+            const body = document.getElementById("data-body");
+            const rows = await fetchTableRows();
+
+            if(!rows || rows.length === 0){
+                body.innerHTML = "<tr><td colspan='7' style='text-align:center;'>Henüz veri bulunamadı...</td></tr>";
+                return;
+            }
+
+            body.innerHTML = "";
+            // en yeni üstte görünsün istiyorsan ters çevir
+            rows.reverse().forEach(r => {
+                body.innerHTML += `
+                    <tr>
+                        <td><span class="device-badge">ESP32 (Faruk)</span></td>
+                        <td><b>${fmt(r.temperature)} °C</b></td>
+                        <td><b>% ${fmt(r.humidity)}</b></td>
+                        <td><b>${fmt(r.pressure)} </b></td>
+                        <td><b>${fmt(r.gas_resistance)}</b></td>
+                        <td><b>${fmt(r.dust_raw)}</b></td>
+                        <td><small>${r.time}</small></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function logout() {
+            // localStorage.removeItem('token');
+            window.location.href = "/";
+        }
+
+        // İlk açılış
+        refreshCharts();
+        refreshTable();
+
+        // 5 saniyede bir güncelle
+        setInterval(() => {
+            refreshCharts();
+            refreshTable();
+        }, 5000);
+    </script>
+</body>
+</html>

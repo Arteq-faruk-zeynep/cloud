@@ -1,0 +1,26 @@
+# Masaüstü / kişisel dosyalar
+*.lnk
+*.docx
+*.pdf
+*.xls*
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+
+# Ortam
+.env
+.venv
+venv/
+
+# ESP / MQTT / test klasörleri
+Sensor_okuma/
+hivemq-ce-*/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

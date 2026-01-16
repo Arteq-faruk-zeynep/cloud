@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT Telemetri - Giriş</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; margin: 0; }
+        .login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 300px; }
+        h2 { text-align: center; color: #333; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        #message { color: red; text-align: center; margin-top: 10px; font-size: 14px; }
+        .register-link { text-align: center; margin-top: 15px; font-size: 14px; }
+        .register-link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .register-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>IoT Giriş</h2>
+        <input type="text" id="user" placeholder="Kullanıcı Adı" required>
+        <input type="password" id="pass" placeholder="Şifre" required>
+        <button onclick="doLogin()">Giriş Yap</button>
+        <p id="message"></p>
+        
+        <div class="register-link">
+            Hesabın yok mu? <a href="/kayit">Kayıt Ol</a>
+        </div>
+    </div>
+
+    <script>
+        async function doLogin() {
+            const userField = document.getElementById('user');
+            const passField = document.getElementById('pass');
+            const msgElement = document.getElementById('message');
+
+            // main.py içindeki (data: dict) yapısına uygun JSON objesi
+            const loginData = {
+                username: userField.value,
+                password: passField.value
+            };
+
+            try {
+                // main.py içindeki endpoint adresi olan /api/login kullanılıyor
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(loginData) 
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('Giriş Başarılı! Veri sayfasına yönlendiriliyorsunuz.');
+                    window.location.href = "/veriler"; 
+                } else {
+                    msgElement.innerText = result.detail || 'Hatalı kullanıcı adı veya şifre!';
+                }
+            } catch (error) {
+                msgElement.innerText = 'Sunucuya bağlanılamadı!';
+            }
+        }
+    </script>
+</body>
+</html>

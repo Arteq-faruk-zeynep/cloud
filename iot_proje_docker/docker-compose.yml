@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:15
+    container_name: Postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "903087"
+      POSTGRES_DB: iot_telemetri_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d iot_telemetri_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: Mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  fastapi:
+    build: ./app
+    container_name: Fastapi
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+  connector:
+    build: ./connector
+    container_name: Connector
+    depends_on:
+      db:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    restart: always
+
+volumes:
+  postgres_data:
